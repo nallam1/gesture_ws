@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>gesture_publisher</name>
+  <version>0.0.1</version>
+  <description>ROS 2 node that publishes recognized hand gestures for robot teleoperation.</description>
+  <maintainer email="nader.allam@mail.utoronto.ca">Nader</maintainer>
+  <license>MIT</license>
+
+  <!-- Dependencies -->
+  <depend>rclpy</depend>
+  <depend>gesture_msgs</depend>
+
+  <!-- Test dependencies (optional but standard) -->
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <!-- Export build type -->
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
