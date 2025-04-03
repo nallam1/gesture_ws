@@ -5,11 +5,27 @@ import time
 from ads1263_reader.ADS1263 import ADS1263
 from ads1263_reader.config import RaspberryPi
 
+import numpy as np
+from scipy.signal import butter, firwin, lfilter, iirnotch
+
+
+# Design filters globally or in __init__
+# Bandpass FIR (20–500 Hz, fs=1000 Hz, 36 taps)
+fs = 1000  # Sampling rate (adjust if needed)
+num_taps = 36
+bandpass_taps = firwin(num_taps, [20, 500], pass_zero=False, fs=fs)
+
+# Notch filter at 60 Hz
+notch_freq = 60.0
+q = 30.0  # Quality factor
+b_notch, a_notch = iirnotch(notch_freq, q, fs)
+
+
 class SEMGReaderNode(Node):
     def __init__(self):
         super().__init__('semg_reader_node')
         self.publisher_ = self.create_publisher(Float32MultiArray, 'semg_data', 10)
-        timer_period = 0.001  # 1000 Hz sampling (1 ms)
+        timer_period = 0.0011/fs  # 1000 Hz sampling (1 ms)
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
         # Initialize ADC
@@ -30,11 +46,53 @@ class SEMGReaderNode(Node):
             selected_values = [adc_values[i] for i in self.channel_list]
             # Convert to microvolts (assumes default reference voltage of 5.0V)
             converted = [(val * 5.0 / 0x7fffffff) * 1e6 for val in selected_values]
+	    filtered_signals = [filter_and_rectify(np.array([val])) for val in converted]
 
-            msg = Float32MultiArray()
-            msg.data = converted
-            self.publisher_.publish(msg)
-            self.get_logger().debug(f'Published sEMG data: {converted}')
+		def filter_and_rectify(converted):
+		    # Apply bandpass FIR filter
+		    bandpassed = lfilter(bandpass_taps, 1.0, signal)
+		    
+		    # Apply notch filter
+		    notched = lfilter(b_notch, a_notch, bandpassed)
+		    
+		    # Rectification
+		    rectified = np.abs(notched)
+		    
+		    return rectified
+
+		# Feature extraction function
+		def extract_time_domain_features(signal, threshold=0.01):
+		    features = {}
+		    features['MAV'] = np.mean(np.abs(signal)) #Moving time average
+		    features['RMS'] = np.sqrt(np.mean(signal**2)) # Moving Root mean square
+		    features['WL'] = np.sum(np.abs(np.diff(signal)))  #Waveform Length 
+		    zc = np.where(np.diff(np.signbit(signal)))[0]
+		    features['ZC'] = len(zc) #Zero-crossings
+		    diff1 = np.diff(signal)
+		    diff2 = np.diff(diff1)
+		    ssc = np.sum(((diff1[:-1] * diff1[1:]) < 0) & (np.abs(diff2) >= threshold))
+		    features['SSC'] = ssc #Slope Sign Change
+		    amp_diffs = np.abs(np.diff(signal))
+		    features['WAMP'] = np.sum(amp_diffs > threshold) #Willison amplitude, number of times pass some reference voltage
+		    return features
+
+	    # For each filtered signal (1 per channel), extract features
+	    features_per_channel = [
+	    extract_time_domain_features(ch_signal)
+		 for ch_signal in filtered_signals
+            ]
+
+	    # Flatten to one vector: [CH0_MAV, CH0_RMS, ..., CH3_WAMP]
+	    flat_feature_vector = []
+	    for ch_features in features_per_channel:
+	        flat_feature_vector.extend(ch_features.values())
+
+	    # Now publish as Float32MultiArray
+	    msg = Float32MultiArray()
+	    msg.data = flat_feature_vector
+	    self.publisher_.publish(msg)
+
+	    self.get_logger().debug(f'Published sEMG data: {flat_feature_vector}')
 
         except Exception as e:
             self.get_logger().error(f'ADC read failed: {e}')
