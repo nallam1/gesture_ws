@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'gesture_publisher = gesture_publisher.gesture_publisher_node:main',
+	    'manual_gesture_publisher = gesture_publisher.manual_gesture_publisher:main',
         ],
     },
 )

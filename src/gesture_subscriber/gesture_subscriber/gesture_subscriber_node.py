@@ -58,13 +58,25 @@ class GestureTeleop(Node):
         joint6_pos = current_joint6 + delta_joint6
         joint7_pos = current_joint7 + delta_joint7
 
-        # Publish blended joint commands
-        joint_msg = JointState()
-        joint_msg.header = Header()
-        joint_msg.header.stamp = self.get_clock().now().to_msg()
-        joint_msg.name = ["panda_joint6", "panda_joint7"]
-        joint_msg.position = [joint6_pos, joint7_pos]
-        self.joint_pub.publish(joint_msg)
+        # Prepare full joint position list (initialize with current positions)
+	joint_names = [
+	    "panda_joint1", "panda_joint2", "panda_joint3", 
+	    "panda_joint4", "panda_joint5", "panda_joint6", "panda_joint7"
+	]
+	current_positions = [self.current_joint_positions.get(name, 0.0) for name in joint_names]
+
+	# Update joints 6 and 7 with computed positions
+	current_positions[5] = joint6_pos  # panda_joint6 is index 5
+	current_positions[6] = joint7_pos  # panda_joint7 is index 6
+
+	# Prepare and publish joint message
+	joint_msg = JointState()
+	joint_msg.header = Header()
+	joint_msg.header.stamp = self.get_clock().now().to_msg()
+	joint_msg.name = joint_names
+	joint_msg.position = current_positions
+	self.joint_pub.publish(joint_msg)
+
 
         # Map grip_state (0.0 to 1.0) to gripper width in meters (0.0 to 0.08 m)
         gripper_width = msg.grip_state * 0.08

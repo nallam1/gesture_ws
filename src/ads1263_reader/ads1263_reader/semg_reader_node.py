@@ -2,8 +2,8 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 import time
-from ads1263_reader.ADS1263 import ADS1263
-from ads1263_reader.config import RaspberryPi
+import ADS1263
+import RPi.GPIO as GPIO
 
 import numpy as np
 from scipy.signal import butter, firwin, lfilter, iirnotch
