@@ -7,7 +7,7 @@ import RPi.GPIO as GPIO
 
 import numpy as np
 from scipy.signal import butter, firwin, lfilter, iirnotch
-
+from statsmodels.tsa.ar_model import AutoReg
 
 # Design filters globally or in __init__
 # Bandpass FIR (20–500 Hz, fs=1000 Hz, 36 taps)
@@ -73,7 +73,28 @@ class SEMGReaderNode(Node):
 		    ssc = np.sum(((diff1[:-1] * diff1[1:]) < 0) & (np.abs(diff2) >= threshold))
 		    features['SSC'] = ssc #Slope Sign Change
 		    amp_diffs = np.abs(np.diff(signal))
-		    features['WAMP'] = np.sum(amp_diffs > threshold) #Willison amplitude, number of times pass some reference voltage
+		    features['AR'] = compute_ar_coefficients(signal, order=4)
+			def compute_ar_coefficients(signal, order=4):
+			    """
+			    Compute AR (auto-regression) coefficients for a single sEMG signal segment.
+
+			    Args:
+			        signal (np.array): 1D array of sEMG signal for one window.
+			        order (int): Order of the AR model.
+
+			    Returns:
+			        np.array: Array of AR coefficients of length `order`.
+			    """
+			    # Fit the AR model
+			    model = AutoReg(signal, lags=order, old_names=False)
+			    model_fit = model.fit()
+
+			    # Extract AR coefficients (excluding the intercept)
+				ar_coefficients = model_fit.params[1:]  # Skip the intercept term
+
+				return ar_coefficients
+		    
+		   #features['WAMP'] = np.sum(amp_diffs > threshold) #Willison amplitude, number of times pass some reference voltage
 		    return features
 
 	    # For each filtered signal (1 per channel), extract features
